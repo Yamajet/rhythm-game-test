@@ -17,7 +17,7 @@ const phasermsg = () => {
 }   
 
 export default defineConfig({
-    base: './',
+    base: '/rhythm-game-test/',
     logLevel: 'warning',
     build: {
         rollupOptions: {
