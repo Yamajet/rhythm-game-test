@@ -18,6 +18,10 @@ const config: Phaser.Types.Core.GameConfig = {
         height: 960
     },
 
+    input: {
+        activePointers: 5
+    },
+
     scene: [
         Boot,
         Preloader,

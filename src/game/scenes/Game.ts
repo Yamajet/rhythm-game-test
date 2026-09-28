@@ -63,6 +63,9 @@ export class Game extends Phaser.Scene {
   private started = false;
   private startTime = 0;
 
+  // スマホ同時押し用：入力を一旦ここにためて、update内でまとめて処理する
+  private inputLaneQueue: number[] = [];
+
   constructor() {
     super('Game');
   }
@@ -76,31 +79,31 @@ export class Game extends Phaser.Scene {
     // リトライ後に古い入力イベントが残って干渉するのを防ぐ
     this.input.removeAllListeners();
     this.input.keyboard?.removeAllListeners();
-  
+
     // scene.restart() 後も安全に動くように、ゲーム状態を明示的に初期化
     this.resetGameState();
-  
+
     this.chart = this.cache.json.get('chart') as ChartData;
-  
+
     this.cameras.main.setBackgroundColor('#111111');
-  
+
     this.createLanes();
     this.createNotes();
     this.createTexts();
     this.createStartMenu();
-  
+
     this.music = this.sound.add('song');
-  
+
     this.input.keyboard?.on('keydown-A', () => {
-      this.judgeLane(1);
+      this.queueLaneInput(1);
     });
 
     this.input.keyboard?.on('keydown-S', () => {
-      this.judgeLane(2);
+      this.queueLaneInput(2);
     });
 
     this.input.keyboard?.on('keydown-D', () => {
-      this.judgeLane(3);
+      this.queueLaneInput(3);
     });
 
     this.input.keyboard?.on('keydown-LEFT', () => {
@@ -126,8 +129,32 @@ export class Game extends Phaser.Scene {
       if (this.finished) return;
 
       const lane = Math.floor(pointer.x / (this.gameWidth / this.laneCount)) + 1;
-      this.judgeLane(lane);
+      this.queueLaneInput(lane);
     });
+  }
+
+  private resetGameState() {
+    this.notes = [];
+    this.menuObjects = [];
+    this.inputLaneQueue = [];
+
+    this.score = 0;
+    this.combo = 0;
+    this.maxCombo = 0;
+
+    this.perfectCount = 0;
+    this.greatCount = 0;
+    this.goodCount = 0;
+    this.missCount = 0;
+
+    this.started = false;
+    this.finished = false;
+    this.isStartMenuOpen = true;
+
+    this.startTime = 0;
+
+    // highSpeed はあえてリセットしない。
+    // リトライ後も前回選んだハイスピードを維持する。
   }
 
   update() {
@@ -135,6 +162,8 @@ export class Game extends Phaser.Scene {
     if (this.finished) return;
 
     const songTime = this.getSongTime();
+
+    this.processQueuedInputs();
 
     if (songTime >= this.chart.endTime) {
       this.finishGame();
@@ -160,32 +189,12 @@ export class Game extends Phaser.Scene {
         this.combo = 0;
         this.missCount++;
 
-        this.showJudgment('がんばれ');
+        this.showJudgment('MISS');
         this.updateScoreText();
 
-        console.log('がんばれS');
+        console.log('MISS');
       }
     }
-  }
-
-  private resetGameState() {
-    this.notes = [];
-    this.menuObjects = [];
-  
-    this.score = 0;
-    this.combo = 0;
-    this.maxCombo = 0;
-  
-    this.perfectCount = 0;
-    this.greatCount = 0;
-    this.goodCount = 0;
-    this.missCount = 0;
-  
-    this.started = false;
-    this.finished = false;
-    this.isStartMenuOpen = true;
-  
-    this.startTime = 0;
   }
 
   private createLanes() {
@@ -216,6 +225,8 @@ export class Game extends Phaser.Scene {
     const laneWidth = this.gameWidth / this.laneCount;
 
     for (const chartNote of this.chart.notes) {
+      // laneは1始まり：
+      // lane 1 = 左、lane 2 = 中央、lane 3 = 右
       const x = (chartNote.lane - 1) * laneWidth + laneWidth / 2;
 
       const rect = this.add.rectangle(
@@ -286,7 +297,7 @@ export class Game extends Phaser.Scene {
     const titleText = this.add.text(
       this.gameWidth / 2,
       210,
-      '音ゲーやってみよ！',
+      'RHYTHM GAME TEST',
       {
         fontSize: '42px',
         color: '#ffffff',
@@ -354,7 +365,7 @@ export class Game extends Phaser.Scene {
     const guideText = this.add.text(
       this.gameWidth / 2,
       475,
-      '← / → か − / + : ハイスピ変える',
+      '← / → or − / + : Change High Speed',
       {
         fontSize: '22px',
         color: '#cccccc',
@@ -379,7 +390,7 @@ export class Game extends Phaser.Scene {
     const startText = this.add.text(
       this.gameWidth / 2,
       580,
-      'やる',
+      'START',
       {
         fontSize: '36px',
         color: '#ffffff'
@@ -393,9 +404,9 @@ export class Game extends Phaser.Scene {
     const startGuideText = this.add.text(
       this.gameWidth / 2,
       655,
-      'スペースキーかエンターキーを押すか『やる』をタップ',
+      'Press SPACE / ENTER or Tap START',
       {
-        fontSize: '20px',
+        fontSize: '22px',
         color: '#cccccc',
         align: 'center'
       }
@@ -501,6 +512,26 @@ export class Game extends Phaser.Scene {
     this.highSpeedText.setText(`HIGH SPEED: ${this.highSpeed.toFixed(1)}`);
   }
 
+  private queueLaneInput(lane: number) {
+    if (!this.started) return;
+    if (this.finished) return;
+
+    if (lane < 1 || lane > this.laneCount) return;
+
+    this.inputLaneQueue.push(lane);
+  }
+
+  private processQueuedInputs() {
+    if (this.inputLaneQueue.length === 0) return;
+
+    const lanes = this.inputLaneQueue.slice();
+    this.inputLaneQueue = [];
+
+    for (const lane of lanes) {
+      this.judgeLane(lane);
+    }
+  }
+
   private judgeLane(lane: number) {
     if (!this.started) return;
     if (this.finished) return;
@@ -524,12 +555,13 @@ export class Game extends Phaser.Scene {
 
     if (!target) return;
 
-    if (bestDiff <= 0.05) {
-      this.applyJudgment(target, 'いい！！', 1000, true);
-    } else if (bestDiff <= 0.10) {
-      this.applyJudgment(target, 'いい', 700, true);
-    } else if (bestDiff <= 0.15) {
-      this.applyJudgment(target, 'まあ……', 300, true);
+    // スマホでも押しやすいように、少し広めの判定幅
+    if (bestDiff <= 0.06) {
+      this.applyJudgment(target, 'PERFECT', 1000, true);
+    } else if (bestDiff <= 0.12) {
+      this.applyJudgment(target, 'GREAT', 700, true);
+    } else if (bestDiff <= 0.18) {
+      this.applyJudgment(target, 'GOOD', 300, true);
     }
   }
 
@@ -544,11 +576,11 @@ export class Game extends Phaser.Scene {
 
     this.score += score;
 
-    if (judgment === 'いい！！') {
+    if (judgment === 'PERFECT') {
       this.perfectCount++;
-    } else if (judgment === 'いい') {
+    } else if (judgment === 'GREAT') {
       this.greatCount++;
-    } else if (judgment === 'まあ……') {
+    } else if (judgment === 'GOOD') {
       this.goodCount++;
     }
 
@@ -619,11 +651,11 @@ export class Game extends Phaser.Scene {
       `RESULT\n\n` +
       `SCORE: ${this.score}\n` +
       `MAX COMBO: ${this.maxCombo}\n` +
-      `ハイスピ: ${this.highSpeed.toFixed(1)}\n\n` +
-      `いい！！: ${this.perfectCount}\n` +
-      `いい: ${this.greatCount}\n` +
-      `まあ……: ${this.goodCount}\n` +
-      `がんばれ: ${this.missCount}`;
+      `HIGH SPEED: ${this.highSpeed.toFixed(1)}\n\n` +
+      `PERFECT: ${this.perfectCount}\n` +
+      `GREAT: ${this.greatCount}\n` +
+      `GOOD: ${this.goodCount}\n` +
+      `MISS: ${this.missCount}`;
 
     const text = this.add.text(
       this.gameWidth / 2,
@@ -653,7 +685,7 @@ export class Game extends Phaser.Scene {
     const retryText = this.add.text(
       this.gameWidth / 2,
       720,
-      'もう一回',
+      'RETRY',
       {
         fontSize: '36px',
         color: '#ffffff'
