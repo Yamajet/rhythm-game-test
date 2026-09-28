@@ -204,10 +204,10 @@ export class Game extends Phaser.Scene {
         this.combo = 0;
         this.missCount++;
 
-        this.showJudgment('MISS');
+        this.showJudgment('がんばれ');
         this.updateScoreText();
 
-        console.log('MISS');
+        console.log('がんばれ');
       }
     }
   }
@@ -312,7 +312,7 @@ export class Game extends Phaser.Scene {
     const titleText = this.add.text(
       this.gameWidth / 2,
       210,
-      'RHYTHM GAME TEST',
+      '音ゲーやってみよ！',
       {
         fontSize: '42px',
         color: '#ffffff',
@@ -380,7 +380,7 @@ export class Game extends Phaser.Scene {
     const guideText = this.add.text(
       this.gameWidth / 2,
       475,
-      '← / → or − / + : Change High Speed',
+      '← / → か − / + でハイスピを変える',
       {
         fontSize: '22px',
         color: '#cccccc',
@@ -405,7 +405,7 @@ export class Game extends Phaser.Scene {
     const startText = this.add.text(
       this.gameWidth / 2,
       580,
-      'START',
+      'やる',
       {
         fontSize: '36px',
         color: '#ffffff'
@@ -419,9 +419,9 @@ export class Game extends Phaser.Scene {
     const startGuideText = this.add.text(
       this.gameWidth / 2,
       655,
-      'Press SPACE / ENTER or Tap START',
+      'スペースキーやエンターキーを押すか『やる』をタップ',
       {
-        fontSize: '22px',
+        fontSize: '18px',
         color: '#cccccc',
         align: 'center'
       }
@@ -601,11 +601,11 @@ export class Game extends Phaser.Scene {
 
     // スマホでも押しやすいように、少し広めの判定幅
     if (bestDiff <= 0.06) {
-      this.applyJudgment(target, 'PERFECT', 1000, true);
+      this.applyJudgment(target, 'いい！！', 1000, true);
     } else if (bestDiff <= 0.12) {
-      this.applyJudgment(target, 'GREAT', 700, true);
+      this.applyJudgment(target, 'いい', 700, true);
     } else if (bestDiff <= 0.18) {
-      this.applyJudgment(target, 'GOOD', 300, true);
+      this.applyJudgment(target, 'まあ……', 300, true);
     }
   }
 
@@ -620,11 +620,11 @@ export class Game extends Phaser.Scene {
 
     this.score += score;
 
-    if (judgment === 'PERFECT') {
+    if (judgment === 'いい！！') {
       this.perfectCount++;
-    } else if (judgment === 'GREAT') {
+    } else if (judgment === 'いい') {
       this.greatCount++;
-    } else if (judgment === 'GOOD') {
+    } else if (judgment === 'まあ……') {
       this.goodCount++;
     }
 
@@ -695,11 +695,11 @@ export class Game extends Phaser.Scene {
       `RESULT\n\n` +
       `SCORE: ${this.score}\n` +
       `MAX COMBO: ${this.maxCombo}\n` +
-      `HIGH SPEED: ${this.highSpeed.toFixed(1)}\n\n` +
-      `PERFECT: ${this.perfectCount}\n` +
-      `GREAT: ${this.greatCount}\n` +
-      `GOOD: ${this.goodCount}\n` +
-      `MISS: ${this.missCount}`;
+      `ハイスピ: ${this.highSpeed.toFixed(1)}\n\n` +
+      `いい！！: ${this.perfectCount}\n` +
+      `いい: ${this.greatCount}\n` +
+      `まあ……: ${this.goodCount}\n` +
+      `がんばれ: ${this.missCount}`;
 
     const text = this.add.text(
       this.gameWidth / 2,
@@ -729,7 +729,7 @@ export class Game extends Phaser.Scene {
     const retryText = this.add.text(
       this.gameWidth / 2,
       720,
-      'RETRY',
+      'もう一回',
       {
         fontSize: '36px',
         color: '#ffffff'
