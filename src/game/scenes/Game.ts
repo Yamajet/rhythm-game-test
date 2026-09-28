@@ -63,8 +63,13 @@ export class Game extends Phaser.Scene {
   private started = false;
   private startTime = 0;
 
-  // スマホ同時押し用：入力を一旦ここにためて、update内でまとめて処理する
+  // 入力を一旦ここにためて、update内でまとめて処理する
   private inputLaneQueue: number[] = [];
+
+  // スマホ同時押し用：
+  // 現在押されているレーンと、前フレームで押されていたレーンを記録する
+  private touchingLanes: Set<number> = new Set();
+  private previousTouchingLanes: Set<number> = new Set();
 
   constructor() {
     super('Game');
@@ -94,6 +99,10 @@ export class Game extends Phaser.Scene {
 
     this.music = this.sound.add('song');
 
+    // スマホの複数指タップ対応。
+    // 標準の1本に加えて、追加で4本分のポインタを有効にする。
+    this.input.addPointer(4);
+
     this.input.keyboard?.on('keydown-A', () => {
       this.queueLaneInput(1);
     });
@@ -122,21 +131,22 @@ export class Game extends Phaser.Scene {
       this.startGame();
     });
 
-    this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
-      // STARTメニュー表示中は、画面全体タップで判定しない
-      if (this.isStartMenuOpen) return;
-      if (!this.started) return;
-      if (this.finished) return;
-
-      const lane = Math.floor(pointer.x / (this.gameWidth / this.laneCount)) + 1;
-      this.queueLaneInput(lane);
-    });
+    // 以前はここで pointerdown から直接 judgeLane() していましたが、
+    // スマホ同時押しを安定させるため、ゲーム中のタップ判定は
+    // update() 内の processActiveTouches() で行います。
+    //
+    // STARTボタンやRETRYボタンは、それぞれのボタン自体に
+    // pointerdown が設定されているので、ここで画面全体の
+    // pointerdown を使わなくても問題ありません。
   }
 
   private resetGameState() {
     this.notes = [];
     this.menuObjects = [];
     this.inputLaneQueue = [];
+
+    this.touchingLanes.clear();
+    this.previousTouchingLanes.clear();
 
     this.score = 0;
     this.combo = 0;
@@ -163,6 +173,11 @@ export class Game extends Phaser.Scene {
 
     const songTime = this.getSongTime();
 
+    // スマホ同時押し用：
+    // 現在押されている指を毎フレーム調べる
+    this.processActiveTouches();
+
+    // キーボード入力・タッチ入力をまとめて判定する
     this.processQueuedInputs();
 
     if (songTime >= this.chart.endTime) {
@@ -519,6 +534,35 @@ export class Game extends Phaser.Scene {
     if (lane < 1 || lane > this.laneCount) return;
 
     this.inputLaneQueue.push(lane);
+  }
+
+  private processActiveTouches() {
+    if (!this.started) return;
+    if (this.finished) return;
+    if (this.isStartMenuOpen) return;
+
+    this.touchingLanes.clear();
+
+    const pointers = this.input.manager.pointers;
+
+    for (const pointer of pointers) {
+      if (!pointer.isDown) continue;
+
+      const lane =
+        Math.floor(pointer.x / (this.gameWidth / this.laneCount)) + 1;
+
+      if (lane < 1 || lane > this.laneCount) continue;
+
+      this.touchingLanes.add(lane);
+    }
+
+    for (const lane of this.touchingLanes) {
+      if (!this.previousTouchingLanes.has(lane)) {
+        this.queueLaneInput(lane);
+      }
+    }
+
+    this.previousTouchingLanes = new Set(this.touchingLanes);
   }
 
   private processQueuedInputs() {
